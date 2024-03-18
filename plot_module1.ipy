@@ -1,0 +1,121 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Mar 15 15:32:45 2024
+
+@author: karth
+"""
+
+import json
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import cm
+%matplotlib qt
+
+
+# Path to the Wireshark file in json
+file_path = "E:\sensio\\rawdata.json"
+
+# Create a pyshark capture object
+with open(file_path, 'r') as file:
+    data = json.load(file)
+# Get the base time from the first packet
+sub_time = float(data[0]['_source']['layers']['frame']['frame.time_epoch'])
+
+
+rssi=[]
+timestamps=[]
+# Process RSSI data for all packets
+for packet in data:
+    timestamp = float(packet['_source']['layers']['frame']['frame.time_epoch']) - sub_time
+    timestamps.append(timestamp)
+    rssi.append(int(packet['_source']['layers']['nordic_ble']['nordic_ble.rssi']))
+# Plot the RSSI graph for all packets
+plt.figure(figsize=(28, 6))
+plt.plot(timestamps, rssi, marker='o', linestyle='-', label='RSSI')
+plt.xlabel('Time (seconds)')
+plt.ylabel('RSSI(dBm)')
+plt.title('RSSI over Time (all packets )')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+rssi_empty=[] 
+timestamps_empty=[]
+#rssi of empty packet
+for packet in data:
+    pdu = int(packet["_source"]["layers"]["btle"]["btle.length"])
+    if  pdu == 0:
+        timestamp = float(packet['_source']['layers']['frame']['frame.time_epoch']) - sub_time
+        timestamps_empty.append(timestamp)
+        rssi_empty.append(int(packet['_source']['layers']['nordic_ble']['nordic_ble.rssi']))
+
+# Plot the RSSI graph for empty packets
+plt.figure(figsize=(28, 6))
+plt.plot(timestamps_empty, rssi_empty, marker='o', linestyle='-', label='RSSI')
+plt.xlabel('Time (seconds)')
+plt.ylabel('RSSI(dBm)')
+plt.title('RSSI over Time (empty packets )')
+plt.legend()
+plt.grid(True)
+plt.show()
+#plot for advertising packets 
+rssi_adv=[]
+timestamp_adv=[]
+num_of_adv=0
+
+#rss of advertising packets
+
+try:
+    for packet in data:
+        i=(packet["_source"]['layers']['btle']['btle.advertising_header_tree']['btle.advertising_header.pdu_type'])
+        i=int(i,16)
+        if i>=0 and i<=6:
+            timestamp = float(packet['_source']['layers']['frame']['frame.time_epoch']) - sub_time
+            timestamp_adv.append(timestamp)
+            rssi_adv.append(int(packet['_source']['layers']['nordic_ble']['nordic_ble.rssi']))
+            num_of_adv+=1
+except KeyError:
+    # Plot the RSSI graph for advertising packets
+    plt.figure(figsize=(28, 6))
+    plt.plot(timestamp_adv, rssi_adv, marker='o', linestyle='-', label='RSSI')
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('RSSI(dBm)')
+    plt.title('RSSI over Time (advertising packets )')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+#plot for data packets
+rssi_data=[]
+timestamps_data=[] 
+i=0
+#rssi of data packet
+for packet in data:
+    pdu = int(packet["_source"]["layers"]["btle"]["btle.length"])
+    i+=1
+    if  pdu != 0 and i>=num_of_adv:
+        timestamp = float(packet['_source']['layers']['frame']['frame.time_epoch']) - sub_time
+        timestamps_data.append(timestamp)
+        rssi_data.append(int(packet['_source']['layers']['nordic_ble']['nordic_ble.rssi']))
+
+# Plot the RSSI graph for data packets
+plt.figure(figsize=(28, 6))
+plt.plot(timestamps_data, rssi_data, marker='o', linestyle='-', label='RSSI')
+plt.xlabel('Time (seconds)')
+plt.ylabel('RSSI(dBm)')
+plt.title('RSSI over Time (data packets )')
+plt.legend()
+plt.grid(True)
+plt.show()
+#calculating the percent of malformate packets 
+num_of_malformate=0
+for packet in data:
+    try:
+        mal_packet=packet['_source']['layers']['_ws.malformed']['_ws.malformed']
+        if (mal_packet=="Malformed Packet"):
+            print(mal_packet)
+            num_of_malformate+=1
+    except KeyError:
+        pass
+print(f"percentage of malformte packets{(num_of_malformate/num_of_adv)*100}")  
+print(num_of_adv)
+print(num_of_malformate)
